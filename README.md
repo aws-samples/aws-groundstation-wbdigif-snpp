@@ -1,6 +1,6 @@
 # Deployment guidelines
 
-The repository contains artefacts, necessary to deploy the solution, described in AWS Blog post "Adoption of AWS Ground Station Wideband DigIF with Amphinicy Blink SDR".
+The repository contains artefacts, necessary to deploy the solution, described in AWS Blog post "Building high-throughput satellite data downlink architectures with AWS Ground Station WideBand DigIF and Amphinicy Blink SDR".
 
 Below you can see an architecture of the solution:
 
