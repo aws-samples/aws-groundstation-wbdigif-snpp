@@ -1,0 +1,158 @@
+<?xml version="1.0"?>
+
+<!--
+Copyright 2023 Amphinicy Technologies
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions
+and limitations under the License.
+
+This configuration is tuned for wideband Suomi NPP reception
+(offset by 113MHz, central freq. 7925, 350 MHz bandwidth).
+Do not modify. -->
+<dsp>
+    <configuration>
+        <multi_gpu_processing>true</multi_gpu_processing>
+        <modulation>QPSK</modulation>
+        <code_rate>1/2</code_rate>
+        <constellation>
+            <constellation_ring>
+                <radius_ratio>1.0</radius_ratio>
+                <start_phase>0.25</start_phase>
+                <map>2 0 1 3</map>
+            </constellation_ring>
+        </constellation>
+        <standard>CCSDS</standard>
+        <soft_symbol_type>FP32</soft_symbol_type>
+
+        <symbol_rate>15</symbol_rate>
+        <sample_rate>43.75</sample_rate>
+        <ccm>true</ccm>
+
+        <reed_solomon>
+            <virtual_fill>0</virtual_fill>
+            <ecc>16</ecc>
+            <interleaving_depth>4</interleaving_depth>
+        </reed_solomon>
+
+        <log_level>info</log_level>
+    </configuration>
+
+    <chain>
+
+        <reader>
+            <input_file>/path/to/input</input_file>
+            <buffer_size>1000</buffer_size>
+        </reader>
+
+        <vita_parser>
+            <alloc_factor>1.05</alloc_factor>
+        </vita_parser>
+
+        <frequency_shifter>
+            <sample_rate>437.5</sample_rate>
+            <frequency_offset>113000000</frequency_offset>
+            <use_blackboard>false</use_blackboard>
+        </frequency_shifter>
+
+        <filter>
+            <low_pass_filter>
+                <fs>437500000</fs>
+                <fpass>16000000</fpass>
+                <fstop>17000000</fstop>
+                <A>70</A>
+            </low_pass_filter>
+        </filter>
+
+        <decimator>
+            <decimation_factor>10</decimation_factor>
+        </decimator>
+
+        <agc>
+            <coarse_gain_estimate>average</coarse_gain_estimate>
+            <record_spectrum>true</record_spectrum>
+        </agc>
+
+        <frequency_shifter>
+        </frequency_shifter>
+
+        <symbol_timing_sync>
+            <ted_algorithm>gardner</ted_algorithm>
+        </symbol_timing_sync>
+
+        <filter>
+            <shaping_filter>
+                <oversample>2</oversample>
+            </shaping_filter>
+        </filter>
+
+        <decimator>
+            <decimation_factor>2</decimation_factor>
+        </decimator>
+
+        <coarse_freq_recovery>
+            <filter>
+                <batch_size>8</batch_size>
+                <domain>D_FREQ</domain>
+                <low_pass_filter>
+                    <fs>2000</fs>
+                    <fpass>200</fpass>
+                    <fstop>300</fstop>
+                    <A>80</A>
+                </low_pass_filter>
+            </filter>
+        </coarse_freq_recovery>
+
+        <costas>
+            <snr>false</snr>
+            <freq>0.0</freq>
+            <min_freq>-1.0</min_freq>
+            <max_freq>1.0</max_freq>
+            <loop_bw>0.007</loop_bw>
+            <chunk_size>102400</chunk_size>
+            <tail_size>10240</tail_size>
+            <lock_sample_count>1024</lock_sample_count>
+            <threads>32</threads>
+            <coalesced_size>64</coalesced_size>
+        </costas>
+
+        <snr_estimator>
+        </snr_estimator>
+
+        <demapper>
+            <record_constellation>true</record_constellation>
+        </demapper>
+
+        <synchroniser>
+            <num_phases>2</num_phases>
+            <viterbi>
+                <inverter>true</inverter>
+            </viterbi>
+            <tolerance>3</tolerance>
+            <chunk_size>150000</chunk_size>
+        </synchroniser>
+
+        <nrz_decoder>
+            <encoding>NRZ_M</encoding>
+            <format>lsb</format>
+        </nrz_decoder>
+
+        <frame_sanitiser>
+            <tolerance>3</tolerance>
+        </frame_sanitiser>
+
+        <serializer>
+        </serializer>
+
+        <writer>
+        </writer>
+
+    </chain>
+</dsp>

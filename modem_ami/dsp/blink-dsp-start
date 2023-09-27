@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Copyright 2023 Amphinicy Technologies
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# This is starting processing service with wideband Suomi NPP configuration and
+# isolating it to specific cores (g4dn.metal). Do not modify.
+
+
+if test -f /etc/blink/dsp/controller.conf ; then
+    . /etc/blink/dsp/controller.conf
+else
+    echo "ERROR: Config file not found!"
+    exit 1
+fi
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/efa/lib:/usr/local/cuda/lib
+export PATH=$PATH:/usr/local/cuda/lib64
+
+# If using collocated AWS GS agent, input protocol for Blink must be UDP.
+# We must isolate cores which have been pinned with irq_affinity script to minimize UDP loss, as well from GS agent cores
+# for g4dn.metal, they are 0, 1, 24, 25, 48, 49, 72, 73 (kernel), and 2-9, 50-57 (agent)
+# for g4dn.12xlarge they are 0, 1, 48, 49
+# refer to AWS GS agent manual for detailed explanation
+
+taskset -a -c 10-23,26-47,58-71,74-94 /usr/share/blink-dsp/bin/blink-dsp \
+-l $BLNK_DSP_LISTEN_PORT \
+-u $BLNK_DSP_IN_PORT \
+-c CCSDS_VITA_Suomi_BW350.xml \
+-O symbol_rate=$BLNK_DSP_SYMBOL_RATE \
+-O roll_off=$BLNK_DSP_ROLL_OFF \
+-O /writer/port=1234 \
+-r

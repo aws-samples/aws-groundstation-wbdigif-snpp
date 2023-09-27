@@ -1,0 +1,756 @@
+---
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+#
+# This template will setup the required resources to allow the AWS Ground Station service to stream
+# satellite contact data into your account.
+#
+# The EC2 instance setup includes:
+#  - Installing and configuring the AWS Ground Station receiver and agent for receiving data
+#
+# Other resources are:
+#  - An Elastic IP which is associated and used by the AWS Ground Station service to emit stream
+#    data into your VPC and  receiver instance.
+#  - Supporting resources like security groups, limited permissions roles, etc.
+#
+# Prerequisites:
+#  - VPC with at least one subnet to launch the receiver instance into.
+#  - SSH key used to ssh into the hosts once they are built.
+#
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  Example of implementation of AWS Ground Station Wideband DigIF X-band downlik data delivery from SNPP satellite to an EC2 with Amphinicy Blink SDR.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Parameters"
+        Parameters:
+          - Ec2InstanceType
+          - VpcId
+          - SubnetId
+          - SSHKey
+          - SSHCidrBlock
+          - AutomationBundleS3Path
+          - BlinkConfigBundleS3Path
+          - BlinkResultsBucketName
+
+
+
+Parameters:
+
+  Ec2InstanceType:
+    Description: EC2 receiver instance type compatible with GS Agent.
+    Type: String
+    Default: "g4dn.metal"
+    AllowedValues:
+      - "c6i.32xlarge"
+      - "c5.24xlarge"
+      - "c5.18xlarge"
+      - "c5.12xlarge"
+      - "c5n.metal"
+      - "c5n.18xlarge"
+      - "m5.24xlarge"
+      - "m5.12xlarge"
+      - "r5.metal"
+      - "r5.24xlarge"
+      - "r5n.metal"
+      - "r5n.24xlarge"
+      - "g4dn.12xlarge"
+      - "g4dn.16xlarge"
+      - "g4dn.metal"
+
+  SSHCidrBlock:
+    Description: The CIDR block to allowlist for SSH and Blink Web UI access to the EC2 receiver instance. The CIDR block has the form x.x.x.x/x. The most secure approach is to use your IP address.
+    Type: String
+    Default: "0.0.0.0/32"
+    AllowedPattern : '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    ConstraintDescription : must be a valid CIDR range of the form x.x.x.x/x, for example "10.0.0.0/16".
+
+  SSHKey:
+    Description: The SSH key used to access the EC2 receiver instance. Choose any SSH key if you are not creating an EC2 receiver instance.
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+  SubnetId:
+    Description: Subnet to launch the EC2 receiver instance in. Choose any subnet if you are not creating an EC2 receiver instance.
+    Type: AWS::EC2::Subnet::Id
+
+  VpcId:
+    Description: VPC to launch the EC2 receiver instance in. Choose any VPC if you are not creating an EC2 receiver instance.
+    Type: AWS::EC2::VPC::Id
+
+  BlinkConfigBundleS3Path:
+    Description: "S3 path to Blink configuration bundle"
+    Default: "s3://"
+    Type: String
+
+  AutomationBundleS3Path:
+    Description: "S3 path to automation scripts bundle"
+    Default: "s3://"
+    Type: String
+
+  BlinkResultsBucketName:
+    Description: "Name of the S3 bucket for storing decoded data and Blink decoding reports"
+    Type: String
+
+
+Mappings:
+  PrefixListId:
+    us-east-2:
+      groundstation: pl-087f83ba4f34e3bea
+    us-west-2:
+      groundstation: pl-0cc36273da754ebdc
+    us-east-1:
+      groundstation: pl-0e5696d987d033653
+    eu-central-1:
+      groundstation: pl-03743f81267c0a85e
+    sa-east-1:
+      groundstation: pl-098248765e9effc20
+    ap-northeast-2:
+      groundstation: pl-059b3e0b02af70e4d
+    ap-southeast-1:
+      groundstation: pl-0d9b804fe014a6a99
+    ap-southeast-2:
+      groundstation: pl-08d24302b8c4d2b73
+    me-south-1:
+      groundstation: pl-02781422c4c792145
+    eu-west-1:
+      groundstation: pl-03fa6b266557b0d4f
+    eu-north-1:
+      groundstation: pl-033e44023025215c0
+    af-south-1:
+      groundstation: pl-0382d923a9d555425
+
+  BlinkMap:
+    eu-north-1:
+      ami: ami-0dd2837a9dbadadcb   # Blink v1.5.0
+    eu-west-1:
+      ami: ami-0a4cfb671590f504a   # Blink v1.5.0
+    eu-central-1:
+      ami: ami-07169593310a129ee   # Blink v1.5.0
+    me-south-1:
+      ami: ami-090f91180ee7f8930   # Blink v1.5.0
+    us-east-1:
+      ami: ami-036ffc891af330893   # Blink v1.5.0
+    us-east-2:
+      ami: ami-0d702d28171ba00cc   # Blink v1.5.0
+    us-west-2:
+      ami: ami-0c5d262a9da538426   # Blink v1.5.0
+    af-south-1:
+      ami: ami-077d8841363352d82   # Blink v1.5.0
+    sa-east-1: 
+      ami: ami-0488d9bc227d38559   # Blink v1.5.0
+    ap-northeast-2:
+      ami: ami-07e74863469cd3371   # Blink v1.5.0
+    ap-southeast-2:
+      ami: ami-07f6c6ba3c803a7b1   # Blink v1.5.0
+
+Resources:
+  # The EC2 instance assumes this role.
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+        - arn:aws:iam::aws:policy/AWSGroundStationAgentInstancePolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - sts:AssumeRole
+                Effect: Allow
+                Resource: !GetAtt GroundStationKmsKeyRole.Arn
+              - Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                Effect: Allow
+                Resource:
+                  - Fn::Sub:
+                    - "arn:${AWS::Partition}:s3:::${Bucket}/*"
+                    - Bucket: !Ref BlinkResultsBucketName
+            Version: "2012-10-17"
+          PolicyName: InstanceGroundStationApiAccessPolicy
+
+  InstanceEC2TagsAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: InstanceEC2TagsAccess
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        # Allow tags operations to watch GS Contact status
+          - Action:
+              - ec2:DeleteTags
+              - ec2:CreateTags
+            Effect: Allow
+            Resource:
+              - Fn::Sub:
+                - "arn:${AWS::Partition}:ec2:${Region}:${Account}:instance/${InstanceId}"
+                - Region: !Ref AWS::Region
+                  Account: !Ref AWS::AccountId
+                  InstanceId: !Ref ReceiverInstance
+      Roles:
+        - !Ref InstanceRole
+
+  InstanceEC2StopInstancePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: InstanceEC2StopInstances
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        # Allow the instance to stop itself
+          - Action:
+              - ec2:StopInstances
+            Effect: Allow
+            Resource:
+              - Fn::Sub:
+                - "arn:${AWS::Partition}:ec2:${Region}:${Account}:instance/${InstanceId}"
+                - Region: !Ref AWS::Region
+                  Account: !Ref AWS::AccountId
+                  InstanceId: !Ref ReceiverInstance
+      Roles:
+        - !Ref InstanceRole
+
+  # The instance profile for your EC2 instance.
+  GeneralInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  # The security group for your EC2 instance.
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: AWS Ground Station receiver instance security group.
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: "-1"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHCidrBlock
+          Description: Management SSH
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref SSHCidrBlock
+          Description: Blink Web Interface
+        - IpProtocol: udp
+          Description: Allow AWS Ground Station Incoming Dataflows
+          ToPort: 50000
+          FromPort: 42000
+          SourcePrefixListId:
+            Fn::FindInMap:
+              - PrefixListId
+              - Ref: AWS::Region
+              - groundstation
+
+
+# An EIP providing a fixed IP address for AWS Ground Station to connect to.  Attach it to the receiver instance created in the stack.
+  ReceiverInstanceElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join [ "-" , [ "EIP" , !Ref "AWS::StackName" ] ]
+
+  ReceiverInstanceElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      EIP: !Ref ReceiverInstanceElasticIp
+      InstanceId: !Ref ReceiverInstance
+
+  # The EC2 instance that will receive data from your satellite using AWS Ground Station.
+  ReceiverInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: false
+      IamInstanceProfile: !Ref GeneralInstanceProfile
+      ImageId: 
+        Fn::FindInMap:
+          [BlinkMap, Ref: "AWS::Region", ami]
+      InstanceType: !Ref Ec2InstanceType
+      KeyName: !Ref SSHKey
+      Monitoring: true
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+      SubnetId:
+        Ref: SubnetId
+      Tags:
+        - Key: Name
+          Value: !Join [ "-" , [ "Receiver" , !Ref "AWS::StackName" ] ]
+      # agentCpuCores list in the AGENT_CONFIG below defines the cores that the AWS Ground Station Agent is allowed to run on. This list can be changed to suit your use-case, however if the agent isn't supplied with enough cores data loss may occur.
+      UserData:
+        Fn::Base64:
+          Fn::Sub:
+            - |
+              #!/bin/bash
+
+              echo AWS_DEFAULT_REGION=${AWS::Region} >> /etc/environment
+
+              # uninstall old AWS CLIv1
+              apt-get update
+              apt-get remove awscli
+
+              # install dependencies
+              apt-get install -y alien net-tools unzip python3-pip
+              pip3 install boto3 ec2-metadata
+
+              # install latest AWS CLIv2
+              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+              unzip /tmp/awscliv2.zip -d /tmp/
+              /tmp/aws/install
+
+              aws s3 cp --region ${AWS::Region} s3://groundstation-wb-digif-software-${AWS::Region}/aws-groundstation-agent/latest/amazon_linux_2_x86_64/aws-groundstation-agent.rpm /tmp/aws-groundstation-agent.rpm
+              alien -d -c -i /tmp/aws-groundstation-agent.rpm
+
+              AGENT_CONFIG_PATH="/opt/aws/groundstation/etc/aws-gs-agent-config.json"
+              cat << AGENT_CONFIG > "$AGENT_CONFIG_PATH"
+              {
+                "capabilities": [
+                  "arn:${AWS::Partition}:groundstation:${AWS::Region}:${AWS::AccountId}:dataflow-endpoint-group/${DataflowEndpointGroupId}"
+                ],
+                "device": {
+                  "privateIps": [
+                    "127.0.0.1"
+                  ],
+                  "publicIps": [
+                    "${EIP}"
+                  ],
+                  "agentCpuCores": [
+                    2, 3, 4, 5, 6, 7, 8, 9, 50, 51, 52, 53, 54, 55, 56, 57
+                  ]
+                }
+              }
+              AGENT_CONFIG
+
+              systemctl start aws-groundstation-agent
+              systemctl enable aws-groundstation-agent
+
+              # <Tuning Section Start>
+
+              # Set IRQ affinity with list of CPU cores and Receive Side Scaling mask
+              # Core list should be the first two cores (and hyperthreads) on each socket
+              # Mask set to everything currently
+              # https://github.com/torvalds/linux/blob/v4.11/Documentation/networking/scaling.txt#L80-L96
+              sed -i 's/eth/ens/g' /opt/aws/groundstation/bin/set_irq_affinity.sh
+              echo "@reboot sudo -i /opt/aws/groundstation/bin/set_irq_affinity.sh '0,1,48,49' 'ffffffff,ffffffff,ffffffff' >>/var/log/user-data.log 2>&1" >>/var/spool/cron/root
+
+              # Set network interface interrupt coalescing
+              # Using ens8 instead of eth0
+              echo "@reboot sudo ethtool -C ens8 rx-usecs 128 tx-usecs 128 >>/var/log/user-data.log 2>&1" >>/var/spool/cron/root
+
+              # Set network interface rx queue depth
+              echo "@reboot sudo ethtool -G ens8 rx 16384 >>/var/log/user-data.log 2>&1" >>/var/spool/cron/root
+
+              # Reserving the port range defined in the GS agent ingress address in the Dataflow Endpoint Group so the kernel doesn't steal any of them from the GS agent. These ports are the ports that the GS agent will ingress data
+              # across, so if the kernel steals one it could cause problems ingressing data onto the instance.
+              echo "@reboot sudo sysctl -w net.ipv4.ip_local_reserved_ports='42000-50000'" >>/var/spool/cron/root
+
+              # Adding additional kernel parameters to defaults.
+              echo "GRUB_CMDLINE_LINUX_DEFAULT=\"console=tty0 console=ttyS0,115200n8 nvme_core.io_timeout=4294967295 intel_idle.max_cstate=1 processor.max_cstate=1 max_cstate=1\"" >/etc/default/grub.d/60-gsagent-settings.cfg
+              update-grub
+
+              # Have to set these manually because the agent installation did not do it
+              echo "net.core.rmem_default = 2147483647" | sudo tee -a /etc/sysctl.conf
+              echo "net.core.wmem_default = 2147483647" | sudo tee -a /etc/sysctl.conf
+
+              # Add the spool file to crontab, otherwise it won't start the spooled commands after reboot on Ubuntu!
+              crontab -u root /var/spool/cron/root
+
+              # </Tuning Section End>
+
+              # Configure Blink
+              aws s3 cp --region ${AWS::Region} ${BlinkConfigBundleS3Path} /home/ubuntu/blink_config_bundle.zip
+              unzip /home/ubuntu/blink_config_bundle.zip -d /home/ubuntu/
+              chmod +x /home/ubuntu/install.sh
+              sleep 60
+              cd /home/ubuntu/ && ./install.sh
+              echo ${BlinkResultsBucketName} > /usr/share/blink-config/etc/s3-bucket-name.txt
+
+              # Setup automation
+              aws s3 cp --region ${AWS::Region} ${AutomationBundleS3Path} /home/ubuntu/automation_bundle.zip
+              unzip /home/ubuntu/automation_bundle.zip -d /home/ubuntu/
+              chmod +x /home/ubuntu/stop-instance.sh
+              chmod +x /home/ubuntu/sdr-contact-completed.sh
+              cp watch-gs-contact-completion.service /etc/systemd/system/
+              systemctl enable watch-gs-contact-completion.service
+              systemctl start watch-gs-contact-completion.service
+
+              # Set runlevel 3 (non-GUI) as default
+              systemctl set-default multi-user.target
+
+              #  Stop the instance
+              /home/ubuntu/stop-instance.sh
+
+            - DataflowEndpointGroupId: !Ref DataflowEndpointGroup
+              EIP: !Ref ReceiverInstanceElasticIp
+
+  # The AWS Ground Station Dataflow Endpoint Group that defines the endpoints that AWS Ground
+  # Station will use to send/receive data to/from your satellite.
+  DataflowEndpointGroup:
+    Type: AWS::GroundStation::DataflowEndpointGroup
+    Properties:
+      EndpointDetails:
+        - AwsGroundStationAgentEndpoint:
+            Name: !Join [ "-" , [ !Ref "AWS::StackName" , "Downlink" ] ]
+            EgressAddress:
+              SocketAddress:
+                Name: 127.0.0.1
+                Port: 55000
+            IngressAddress:
+              SocketAddress:
+                Name: !Ref ReceiverInstanceElasticIp
+                PortRange:
+                  Minimum: 42000
+                  Maximum: 55000
+
+  GroundStationCloudWatchEventHandlerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handle_cloudwatch_event
+      Runtime: python3.8
+      MemorySize: 128
+      Timeout: 300
+      Role: !GetAtt GroundStationCloudWatchEventHandlerLambdaRole.Arn
+      Environment:
+        Variables:
+          ReceiverInstance: !Ref ReceiverInstance
+          DataflowEndpointGroup: !Ref DataflowEndpointGroup
+          StartInstance: "True"
+          StopInstance: "True"
+      Code:
+        ZipFile:
+          |
+          import json
+          import logging
+          import os
+
+          import boto3
+
+          EC2_INSTANCE_IDS = [
+            os.environ.get("ReceiverInstance")
+          ]
+          DATAFLOW_ENDPOINT_GROUPS = [
+            os.environ.get("DataflowEndpointGroup")
+          ]
+          START_INSTANCE = os.environ.get("StartInstance", "").lower() == "true"
+          STOP_INSTANCE = os.environ.get("StopInstance", "").lower() == "true"
+
+          logger = logging.getLogger(__name__)
+          logger.setLevel(logging.INFO)
+
+
+          def handle_cloudwatch_event(lambda_event, context):
+              logger.info(f"handle_cloudwatch_event: Called with event {json.dumps(lambda_event)}")
+              ec2_resource = boto3.resource("ec2")
+
+              dataflow_endpoint_group_id = get_dataflow_endpoint_group_id(lambda_event)
+              if dataflow_endpoint_group_id not in DATAFLOW_ENDPOINT_GROUPS:
+                  logger.warn(f"This dataflow_endpoint_group_id ({dataflow_endpoint_group_id}) does does not occur in this list: {DATAFLOW_ENDPOINT_GROUPS}")
+                  return
+
+              dataflow_endpoint_group_state = get_dataflow_endpoint_group_state(lambda_event)
+              if START_INSTANCE and dataflow_endpoint_group_state == "PREPASS":
+                  handle_prepass(ec2_resource)
+              elif dataflow_endpoint_group_state == "COMPLETED":
+                  handle_complete(ec2_resource)
+              else:
+                  logger.info(f"No action defined for dataflow_endpoint_group state {dataflow_endpoint_group_state}.")
+
+
+          def get_dataflow_endpoint_group_id(lambda_event):
+              dataflow_endpoint_group_id = lambda_event.get("detail", {}).get("dataflowEndpointGroupId")
+              logger.info(f"get_dataflow_endpoint_group_id: DataflowEndpointGroupId is {dataflow_endpoint_group_id}")
+              return dataflow_endpoint_group_id
+
+
+          def get_dataflow_endpoint_group_state(lambda_event):
+              dataflow_endpoint_group_state = lambda_event.get("detail", {}).get("dataflowEndpointGroupState")
+              logger.info(f"get_dataflow_endpoint_group_state: DataflowEndpointGroup state is {dataflow_endpoint_group_state}")
+              return dataflow_endpoint_group_state
+
+
+          def handle_prepass(ec2_resource):
+              for ec2_instance_id in EC2_INSTANCE_IDS:
+                  instance = ec2_resource.Instance(ec2_instance_id)
+                  if instance.state.get("Name") == "stopping":
+                      logger.info(f"Waiting to Stop {ec2_instance_id}")
+                      instance.wait_until_stopped()
+                      instance.reload()
+                  if instance.state.get("Name") == "stopped":
+                      logger.info(f"Starting {ec2_instance_id}")
+                      instance.start()
+                  else:
+                      logger.warning(f"Not starting {ec2_instance_id} because its state is {instance.state}")
+
+
+          def handle_complete(ec2_resource):
+              for ec2_instance_id in EC2_INSTANCE_IDS:
+                  instance = ec2_resource.Instance(ec2_instance_id)
+                  if instance.state.get("Name") == "running":
+                      logger.info(f"Setting Contact tag for {ec2_instance_id} to 'COMPLETED'")
+                      instance.create_tags(
+                        Resources=[ec2_instance_id],
+                        Tags=[{
+                            'Key': 'Contact',
+                            'Value': 'COMPLETED'
+                        }])
+
+                      if STOP_INSTANCE:
+                        logger.info(f"Stopping instance {ec2_instance_id}")
+                        instance.stop()
+                  else:
+                      logger.warning(f"Not stopping {ec2_instance_id} because its state is {instance.state}")
+
+  GroundStationCloudWatchEventHandlerLambdaRolePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ec2:StartInstances
+              - ec2:StopInstances
+              - ec2:DeleteTags
+              - ec2:CreateTags
+            Resource:
+              - Fn::Sub:
+                - "arn:${AWS::Partition}:ec2:${Region}:${Account}:instance/${InstanceId}"
+                - Region: !Ref AWS::Region
+                  Account: !Ref AWS::AccountId
+                  InstanceId: !Ref ReceiverInstance
+          # DescribeInstanceStatus does not allow you to specify a resource restriction, you must provide '*'
+          - Effect: Allow
+            Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceStatus
+            Resource:
+              - '*'
+
+  GroundStationCloudWatchEventHandlerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: '/'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref GroundStationCloudWatchEventHandlerLambdaRolePolicy
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action:
+            - sts:AssumeRole
+
+  GroundStationCloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "EventRule"
+      EventPattern:
+        source:
+          - "aws.groundstation"
+        detail-type:
+          - "Ground Station Dataflow Endpoint Group State Change"
+        detail:
+          dataflowEndpointGroupId:
+            - !Ref DataflowEndpointGroup
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt GroundStationCloudWatchEventHandlerLambda.Arn
+          Id: "CloudWatchEventHandler"
+
+  PermissionForGroundStationCloudWatchEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GroundStationCloudWatchEventHandlerLambda
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt GroundStationCloudWatchEventRule.Arn
+
+  # The IAM role that AWS Ground Station will assume to access and use the KMS Key for data delivery
+  GroundStationKmsKeyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - groundstation.amazonaws.com
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Ref AWS::AccountId
+              ArnLike:
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:groundstation:${AWS::Region}:${AWS::AccountId}:mission-profile/*"
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+
+  GroundStationKmsKeyAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - kms:Decrypt
+            Effect: Allow
+            Resource: !GetAtt GroundStationDataDeliveryKmsKey.Arn
+      PolicyName: GroundStationKmsKeyAccessPolicy
+      Roles:
+        - Ref: GroundStationKmsKeyRole
+
+  GroundStationDataDeliveryKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      KeyPolicy:
+        Statement:
+          - Action:
+              - kms:CreateAlias
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:Delete*
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+              - kms:GenerateDataKey
+              - kms:TagResource
+              - kms:UntagResource
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+            Resource: "*"
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKeyWithoutPlaintext
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt GroundStationKmsKeyRole.Arn
+            Resource: "*"
+            Condition:
+              StringEquals:
+                "kms:EncryptionContext:sourceAccount": !Ref AWS::AccountId
+              ArnLike:
+                "kms:EncryptionContext:sourceArn": !Sub "arn:${AWS::Partition}:groundstation:${AWS::Region}:${AWS::AccountId}:mission-profile/*"
+          - Action:
+              - kms:CreateGrant
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+            Resource: "*"
+            Condition:
+              ForAllValues:StringEquals:
+                "kms:GrantOperations":
+                  - Decrypt
+                  - GenerateDataKeyWithoutPlaintext
+                "kms:EncryptionContextKeys":
+                  - sourceArn
+                  - sourceAccount
+              ArnLike:
+                "kms:EncryptionContext:sourceArn": !Sub "arn:${AWS::Partition}:groundstation:${AWS::Region}:${AWS::AccountId}:mission-profile/*"
+              StringEquals:
+                "kms:EncryptionContext:sourceAccount": !Ref AWS::AccountId
+        Version: "2012-10-17"
+      EnableKeyRotation: true
+
+  # The AWS Ground Station Tracking Config that defines how the antenna system will track your
+  # satellite as it moves through the sky.
+  TrackingConfig:
+    Type: AWS::GroundStation::Config
+    Properties:
+      Name: "Tracking Config"
+      ConfigData:
+        TrackingConfig:
+          Autotrack: "PREFERRED"
+
+  # The AWS Ground Station Dataflow Endpoint Config that defines the endpoint used to downlink data
+  # from your satellite.
+  DownlinkDigIfEndpointConfig:
+    Type: AWS::GroundStation::Config
+    Properties:
+      Name: "Downlink DigIF Endpoint Config"
+      ConfigData:
+        DataflowEndpointConfig:
+          DataflowEndpointName: !Join [ "-" , [ !Ref "AWS::StackName" , "Downlink" ] ]
+          DataflowEndpointRegion: !Ref AWS::Region
+
+  # The AWS Ground Station Antenna Downlink Config that defines the frequency spectrum used to
+  # downlink data from your satellite.
+
+  Snpp350DownlinkDigIfAntennaConfig:
+    Type: AWS::GroundStation::Config
+    Properties:
+      Name: "SNPP 350 MHz Downlink WBDigIF Antenna Config"
+      ConfigData:
+        AntennaDownlinkConfig:
+          SpectrumConfig:
+            Bandwidth:
+              Units: "MHz"
+              Value: 350
+            CenterFrequency:
+              Units: "MHz"
+              Value: 7925
+            Polarization: "RIGHT_HAND"
+
+
+  # The AWS Ground Station Mission Profile that groups the above configurations to define how to
+  # downlink data to your satellite.
+
+  Snpp350MissionProfile:
+    Type: AWS::GroundStation::MissionProfile
+    Properties:
+      Name: !Sub '${AWS::StackName}: 37849 SNPP 350MHz WBDigIF EC2 Delivery'
+      ContactPrePassDurationSeconds: 120
+      ContactPostPassDurationSeconds: 120
+      MinimumViableContactDurationSeconds: 180
+      TrackingConfigArn: !Ref TrackingConfig
+      DataflowEdges:
+        - Source: !Ref Snpp350DownlinkDigIfAntennaConfig
+          Destination: !Ref DownlinkDigIfEndpointConfig
+      StreamsKmsKey:
+        KmsKeyArn: !GetAtt GroundStationDataDeliveryKmsKey.Arn
+      StreamsKmsRole: !GetAtt GroundStationKmsKeyRole.Arn
+
+Outputs:
+  DataflowEndpointGroupId:
+    Value:
+      Ref: DataflowEndpointGroup
+
+  ReceiverAddress:
+    Value:
+      Ref: ReceiverInstanceElasticIp

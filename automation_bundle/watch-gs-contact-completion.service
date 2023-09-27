@@ -1,0 +1,27 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+# Deployment:
+# $ sudo cp watch-gs-contact-completion.service /etc/systemd/system/
+# $ sudo systemctl enable watch-gs-contact-completion.service
+# $ sudo systemctl start watch-gs-contact-completion.service
+# $ sudo systemctl status watch-gs-contact-completion.service
+# $ sudo systemctl stop watch-gs-contact-completion.service
+# Logs are written into /var/log/syslog with identifier `watch-gs-contact-completion`
+#
+# Reference <https://www.freedesktop.org/software/systemd/man/systemd.service.html>
+
+[Unit]
+Description=Watch AWS Ground Station contact completion
+After=multi-user.target
+
+[Service]
+Type=simple
+# `on-failure` will restart the service if the SDR-specific script invoked by the service fails.
+# The service will restart and re-attempt to execute the SDR-specific script.
+Restart=on-failure
+ExecStart=/usr/bin/python3 /home/ubuntu/watch-gs-contact-completion.py
+SyslogIdentifier=watch-gs-contact-completion
+
+[Install]
+WantedBy=multi-user.target
