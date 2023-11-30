@@ -127,6 +127,13 @@ If, during the contact, you connect to the Blink web UI, as described above, you
 
 After the end of the contact you will get the processed satellite data (CADU) on the Amazon EC2 instance in the directory `/var/blink/out/ACQ_<timestamp>/CADUs/`.
 
+After the end of the contact you will find following artefacts in the S3 bucket `<s3-bucket-name>` (the bucket, which you've specified in the Cloud Formation template parameters during the deployment):
+
+* `<s3-bucket-name>/Blink/<yyyy-mm-dd>/` - Blink contact report
+* `<s3-bucket-name>/Logs/<yyyy-mm-dd>/<hh-mm-ss>/` - syslog, Ground Station Agent logs, and Blink logs
+
+If you want to upload additional artefacts (e.g. CADUs) to S3 after the end of the contact, you can add the respective code into `modem_ami/config_service/stop.sh:38` or into `sdr-contact-completed.sh:18`.
+
 ## Data visualization
 
 As an extra step, users can modify the setup to visualize the satellite data in real-time during the contact with the NASA software Simulcast.
