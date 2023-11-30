@@ -43,7 +43,7 @@ Create a S3 bucket `<s3-bucket-name>` and upload there the two archives from abo
 
 ## Instance Quota
 
-The Amphinicy Blink Modem requires an EC2 instance, equipped with GPUs. The AWS Ground Station Agent supports [selected set of instance types](https://docs.aws.amazon.com/ground-station/latest/ug/agent-requirements.htm).
+The Amphinicy Blink Modem requires an EC2 instance, equipped with GPUs. The AWS Ground Station Agent supports [selected set of instance types](https://docs.aws.amazon.com/ground-station/latest/ug/agent-requirements.html).
 
 Before the deployment, you need to request a quota increase for the recommended G4 instance type. You’re going to be using `g4dn.metal` instance (we tested the solution with this instance type), which has 8 GPUs and 96 Virtual CPUs. Request a quota increase to 96 vCPU for "Running On-Demand G and VT instances" using the Service Quotas console <https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas/>.
 
