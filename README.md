@@ -66,6 +66,7 @@ Once you know the availability zones you need to match them to a subnet. Do the 
 8. Select the Region where you want to launch the instance.
 9. Select Subnets from the left-hand side list.
 10.	From the list of subnets see which ones correspond to the availability zones from above. You will have to slide the window to the right.
+11. Please note a public subnet in the availability zone - you will deploy the resources into the public subnet.
 
 ## AWS CloudFormation template deployment
 
