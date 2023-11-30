@@ -11,8 +11,18 @@
 # See the License for the specific language governing permissions
 # and limitations under the License.
 
+tar_file = modem_ami.tar.gz
+
 configuration:
-	tar --exclude-vcs --exclude="Makefile" --exclude="*.iml" --exclude=".idea/" --exclude="install.sh" -czvf modem_ami.tar.gz -C .. modem_ami && tar -acf blink_config_bundle.zip install.sh modem_ami.tar.gz
+	tar \
+		--exclude-vcs \
+		--exclude="Makefile" \
+		--exclude="*.iml" \
+		--exclude=".idea/" \
+		--exclude="install.sh" \
+		--exclude=$(tar_file) \
+		-czvf $(tar_file) -C .. modem_ami \
+	&& tar -acf blink_config_bundle.zip install.sh $(tar_file)
 
 clean:
-	rm -f blink_config_bundle.zip modem_ami.tar.gz
+	rm -f blink_config_bundle.zip $(tar_file)
