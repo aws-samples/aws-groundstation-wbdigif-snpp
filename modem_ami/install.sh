@@ -107,9 +107,9 @@ systemctl restart blink-config.service
  sleep 2
 
 echo -e "Changing MNC docker container's CPU affinities"
-docker update --cpuset-cpus 10-23,26-47,58-71,74-94 mnc_nginx
-docker update --cpuset-cpus 10-23,26-47,58-71,74-94 mnc_standalone
-docker update --cpuset-cpus 10-23,26-47,58-71,74-94 mncdocker-timescaledb-1
-docker update --cpuset-cpus 10-23,26-47,58-71,74-94 mnc_postgres
+docker update --cpuset-cpus 11-23,26-47,59-71,74-94 mnc_nginx
+docker update --cpuset-cpus 11-23,26-47,59-71,74-94 mnc_standalone
+docker update --cpuset-cpus 11-23,26-47,59-71,74-94 mncdocker-timescaledb-1
+docker update --cpuset-cpus 11-23,26-47,59-71,74-94 mnc_postgres
 
 echo -e "Blink modem configuration pack installation complete."
