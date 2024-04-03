@@ -25,11 +25,11 @@ blink-stop
 
 # If using collocated AWS GS agent, input protocol for Blink must be UDP.
 # We must isolate cores which have been pinned with irq_affinity script to minimize UDP loss, as well from GS agent cores
-# for g4dn.metal, they are 0, 1, 24, 25, 48, 49, 72, 73 (kernel), and 2-9, 50-57 (agent)
+# for g4dn.metal, they are 0, 1, 24, 25, 48, 49, 72, 73 (kernel), and 2-10, 50-58 (agent)
 # for g4dn.12xlarge they are 0, 1, 48, 49
 # refer to AWS GS agent manual for detailed explanation
 
-taskset -a -c 10-23,26-47,58-71,74-94 /usr/bin/java -Xmx4096m --add-opens java.base/java.lang=ALL-UNNAMED -Dblink.conf.dir=/etc/blink/fep-rx -Dblink.reports.dir=/usr/share/blink/report -DskipMd5=true -Dlog4j.configurationFile=/etc/blink/fep-rx/log4j2-snmp.xml -cp "/usr/share/blink/lib/*" com.amphinicy.blink.snmp.Bootstrap /etc/blink/fep-rx/blink-service-settings.xml > /dev/null 2>&1 &
+taskset -a -c 11-23,26-47,59-71,74-94 /usr/bin/java -Xmx4096m --add-opens java.base/java.lang=ALL-UNNAMED -Dblink.conf.dir=/etc/blink/fep-rx -Dblink.reports.dir=/usr/share/blink/report -DskipMd5=true -Dlog4j.configurationFile=/etc/blink/fep-rx/log4j2-snmp.xml -cp "/usr/share/blink/lib/*" com.amphinicy.blink.snmp.Bootstrap /etc/blink/fep-rx/blink-service-settings.xml > /dev/null 2>&1 &
 
 # wait for Blink to start up: the next command needs Blink to have already opened the port
 c=1
