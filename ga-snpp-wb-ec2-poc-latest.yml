@@ -128,27 +128,29 @@ Mappings:
 
   BlinkMap:
     eu-north-1:
-      ami: ami-0dd2837a9dbadadcb   # Blink v1.5.0
+      ami: ami-032d9834043e02ab8   # Blink v1.5.4
     eu-west-1:
-      ami: ami-0a4cfb671590f504a   # Blink v1.5.0
+      ami: ami-07fd4dd0e1da2e128   # Blink v1.5.4
     eu-central-1:
-      ami: ami-07169593310a129ee   # Blink v1.5.0
+      ami: ami-0ace26d7aa5a9838a   # Blink v1.5.4
     me-south-1:
-      ami: ami-090f91180ee7f8930   # Blink v1.5.0
+      ami: ami-07112af57c28da2ae   # Blink v1.5.4
     us-east-1:
-      ami: ami-036ffc891af330893   # Blink v1.5.0
+      ami: ami-0cebf06762f9ed43a   # Blink v1.5.4
     us-east-2:
-      ami: ami-0d702d28171ba00cc   # Blink v1.5.0
+      ami: ami-02c2b27360696c505   # Blink v1.5.4
     us-west-2:
-      ami: ami-0c5d262a9da538426   # Blink v1.5.0
+      ami: ami-022af04cf2c08e0cf   # Blink v1.5.4
     af-south-1:
-      ami: ami-077d8841363352d82   # Blink v1.5.0
+      ami: ami-01b415345c8291ebe   # Blink v1.5.4
     sa-east-1: 
-      ami: ami-0488d9bc227d38559   # Blink v1.5.0
+      ami: ami-004889f1fa1be9cf7   # Blink v1.5.4
     ap-northeast-2:
-      ami: ami-07e74863469cd3371   # Blink v1.5.0
+      ami: ami-03dcbd3a7400d240b   # Blink v1.5.4
     ap-southeast-2:
-      ami: ami-07f6c6ba3c803a7b1   # Blink v1.5.0
+      ami: ami-04b1bcbf2161badd6   # Blink v1.5.4
+    ap-southeast-1:
+      ami: ami-08cef4e088ea207ec   # Blink v1.5.4  
 
 Resources:
   # The EC2 instance assumes this role.

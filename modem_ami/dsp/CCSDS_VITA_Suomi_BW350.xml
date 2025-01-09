@@ -127,6 +127,7 @@ Do not modify. -->
         </snr_estimator>
 
         <demapper>
+            <clipping>true</clipping>
             <record_constellation>true</record_constellation>
         </demapper>
 

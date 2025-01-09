@@ -99,9 +99,9 @@ Acknowledge the browser certificate warning and continue to the log in page.
 
 There are 2 users:
 
-* `blink-user` (default password: `blink-user`) – user with basic roles needed to view the modem’s dashboard and issue minimum number of required operational commands.
+* `blink-user` (default password: The EC2 instance ID, for example `i-0a44e932eeb18eb6b`) – user with basic roles needed to view the modem’s dashboard and issue minimum number of required operational commands.
 
-* `blink-admin` (default password: `blink-admin`) – power user with all roles enabled, allowing the user in-depth configuration of Blink’s M&C interface.
+* `blink-admin` (default password: The EC2 instance ID, for example `i-0a44e932eeb18eb6b`) – power user with all roles enabled, allowing the user in-depth configuration of Blink’s M&C interface.
 
 It’s good practice to change the default passwords on your first log on.
 
