@@ -83,7 +83,7 @@ BlinkConfigBundleS3Path: s3://<s3-bucket-name>/blink_config_bundle.zip
 BlinkResultsBucketName: <s3-bucket-name>
 ```
 
-The stack deployment will take approximately 5 min, followed by provisioning of an EC2 instance, which takes approximately 8 min. During the provisioning, the AWS Ground Station Agent, installed on the instance, registers with the AWS Ground Station service, to make it possible for you to schedule satellite contacts. Therefore you need to wait for the installation process to finish and the EC2 Blink instance to shutdown automatically.
+The stack deployment will take approximately 5 min, followed by provisioning of an EC2 instance, which takes approximately 10 min. During the provisioning, the AWS Ground Station Agent, installed on the instance, registers with the AWS Ground Station service, to make it possible for you to schedule satellite contacts. Therefore you need to wait for the installation process to finish and the EC2 Blink instance to shutdown automatically.
 
 ## Connecting to the Blink SDR instance
 
