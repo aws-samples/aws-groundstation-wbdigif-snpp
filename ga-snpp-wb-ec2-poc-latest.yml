@@ -380,16 +380,19 @@ Resources:
               # Mask set to everything currently
               # https://github.com/torvalds/linux/blob/v4.11/Documentation/networking/scaling.txt#L80-L96
 
-              # Replace eth* with enp198s* prior to adding irq affinity automation to boot
+              # Replace eth* with PRIMARY_INTERFACE_NAME* prior to adding irq affinity automation to boot
 
-              sed -i 's/eth/enp198s/g' /opt/aws/groundstation/bin/set_irq_affinity.sh
+              PRIMARY_INTERFACE=$(ifconfig | grep -B1 $(ec2metadata --local-ipv4) | grep -o "^\w*")
+              PRIMARY_INTERFACE_NAME=$(echo $PRIMARY_INTERFACE | rev | cut -c2- | rev)
+
+              sed -i "s/eth/$PRIMARY_INTERFACE_NAME/g" /opt/aws/groundstation/bin/set_irq_affinity.sh
               echo "@reboot sudo -i /opt/aws/groundstation/bin/set_irq_affinity.sh '0,1,48,49' 'ffffffff,ffffffff,ffffffff' >>/var/log/user-data.log 2>&1" >>/var/spool/cron/root
 
               # Set network interface interrupt coalescing
-              echo "@reboot sudo ethtool -C enp198s0 rx-usecs 128 tx-usecs 128 >>/var/log/user-data.log 2>&1" >>/var/spool/cron/root
+              echo "@reboot sudo ethtool -C $PRIMARY_INTERFACE rx-usecs 128 tx-usecs 128 >>/var/log/user-data.log 2>&1" >>/var/spool/cron/root
 
               # Set network interface rx queue depth
-              echo "@reboot sudo ethtool -G enp198s0 rx 16384 >>/var/log/user-data.log 2>&1" >>/var/spool/cron/root
+              echo "@reboot sudo ethtool -G $PRIMARY_INTERFACE rx 16384 >>/var/log/user-data.log 2>&1" >>/var/spool/cron/root
 
               # Adding additional kernel parameters to defaults
               
@@ -420,7 +423,7 @@ Resources:
               # Add the spool file to crontab, otherwise it won't start the spooled commands after reboot on Ubuntu
               crontab -u root /var/spool/cron/root
 
-              # Set up fq qdisc on enp198s0 via service command, GS Agent requires these limits and fq
+              # Set up fq qdisc on PRIMARY_INTERFACE via service command, GS Agent requires these limits and fq
 
               TC_SERVICE_PATH="/etc/systemd/system/tc-qdisc.service"
               cat << TC_SERVICE > "$TC_SERVICE_PATH"
@@ -430,7 +433,7 @@ Resources:
 
               [Service]
               Type=oneshot
-              ExecStart=/sbin/tc qdisc add dev enp198s0 root fq limit 1000000 flow_limit 100000
+              ExecStart=/sbin/tc qdisc add dev $PRIMARY_INTERFACE root fq limit 1000000 flow_limit 100000
               RemainAfterExit=yes
 
               [Install]
