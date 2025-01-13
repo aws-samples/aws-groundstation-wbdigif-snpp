@@ -20,6 +20,7 @@ Do not modify. -->
 <dsp>
     <configuration>
         <multi_gpu_processing>true</multi_gpu_processing>
+        <host_buffers>10</host_buffers>
         <modulation>QPSK</modulation>
         <code_rate>1/2</code_rate>
         <constellation>
@@ -65,8 +66,8 @@ Do not modify. -->
         <filter>
             <low_pass_filter>
                 <fs>437500000</fs>
-                <fpass>16000000</fpass>
-                <fstop>17000000</fstop>
+                <fpass>14000000</fpass>
+                <fstop>15000000</fstop>
                 <A>70</A>
             </low_pass_filter>
         </filter>
@@ -96,19 +97,6 @@ Do not modify. -->
         <decimator>
             <decimation_factor>2</decimation_factor>
         </decimator>
-
-        <coarse_freq_recovery>
-            <filter>
-                <batch_size>8</batch_size>
-                <domain>D_FREQ</domain>
-                <low_pass_filter>
-                    <fs>2000</fs>
-                    <fpass>200</fpass>
-                    <fstop>300</fstop>
-                    <A>80</A>
-                </low_pass_filter>
-            </filter>
-        </coarse_freq_recovery>
 
         <costas>
             <snr>false</snr>
