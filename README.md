@@ -138,7 +138,7 @@ If you want to upload additional artefacts (e.g. CADUs) to S3 after the end of t
 
 As an extra step, users can modify the setup to visualize the satellite data in real-time during the contact with the NASA software Simulcast.
 
-Following the Simulcast manual `s3://space-solutions-eu-west-1/software/SIMULCAST/Simulcast_7.0_Users_Guide.pdf` you can install the Simulcast software from `s3://space-solutions-eu-west-1/software/SIMULCAST/SIMULCAST_7.0.tar.gz` on the EC2 instance with Blink or on another EC2 instance reachable over TCP from the Blink EC2 instance.
+Following the [Simulcast manual](./docs/Simulcast_7.0_Users_Guide.pdf) you can install the Simulcast software from `s3://space-solutions-eu-west-1/software/SIMULCAST/SIMULCAST_7.0.tar.gz` on the EC2 instance with Blink or on another EC2 instance reachable over TCP from the Blink EC2 instance.
 
 To enable Blink streaming data to Simulcast you need to:
 
